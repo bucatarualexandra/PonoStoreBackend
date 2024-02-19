@@ -151,7 +151,7 @@ const Users = mongoose.model("Users", {
 app.post("/signup", async (req, res) => {
     let check = await Users.findOne({ email: req.body.email });
     if (check) {
-        return res.status(400).json({ success: false, errors: "Existing user found with same email adress" })
+        return res.status(400).json({ success: false, errors: "Există un cont creeat cu aceeași adresă de email!" })
     }
     let cart = {};
     for (let i = 0; i < 300; i++) {
@@ -191,11 +191,11 @@ app.post("/login", async (req, res) => {
             res.json({ success: true, token });
         }
         else {
-            res.json({ success: false, errors: "Wrong password" });
+            res.json({ success: false, errors: "Parolă greșită! Mai încearcă!" });
         }
     }
     else {
-        res.json({ success: false, errors: "Wrong email" });
+        res.json({ success: false, errors: "Email greșit!Mai încearcă!" });
     }
 })
 
@@ -208,11 +208,29 @@ app.get('/newcollections', async (req, res) => {
 })
 
 //Creating endpoint for new poppular in women
-app.get('/popularinwomen', async (req, res) => {
-    let products = await Product.find({ category: "women" });
-    let popular_in_women = products.slice(0, 4);
+app.get('/popularinnunta', async (req, res) => {
+    let products = await Product.find({ category:"nunta"});
+    let popular_in_wedding = products.slice(0, 4);
     console.log("Popular in women Fetched");
-    res.send(popular_in_women);
+    res.send(popular_in_wedding);
+
+})
+
+
+//Creating endpoint for all product
+app.get('/allproductsHero', async (req, res) => {
+    let products = await Product.find({});
+    let all_in_products = products.slice(0, 25);
+    console.log("Hero product fetched");
+    res.send(all_in_products);
+
+})
+//Creating endpoint for offers
+app.get('/offerproducts', async (req, res) => {
+    let products = await Product.find({ category:"botez"});
+    let offer_products = products.slice(0, 4);
+    console.log("Offer fetched!");
+    res.send(offer_products);
 
 })
 
@@ -221,7 +239,7 @@ app.get('/popularinwomen', async (req, res) => {
 const fetchUser = async (req, res, next) => {
     const token = req.header("auth-token");
     if (!token) {
-        res.status(401).send({ errors: "Please authentificate first" });
+        res.status(401).send({ errors: "Te rog să te autetifici mai întâi!" });
     }
     else {
         try {
@@ -230,7 +248,7 @@ const fetchUser = async (req, res, next) => {
             next();
 
         } catch (error){
-            res.status(401).send({errors: "Please authetificate first"})
+            res.status(401).send({errors: "Te rog să te autetifici mai întâi!"})
         }
     }
 }
@@ -242,7 +260,7 @@ app.post("/addtocart", fetchUser, async (req, res) => {
     let userData =await Users.findOne({_id:req.user.id});
     userData.cartData[req.body.itemId] +=1;
     await Users.findOneAndUpdate({_id:req.user.id}, {cartData:userData.cartData});
-    res.send(JSON.stringify("Added"));
+    res.send(JSON.stringify("Produs adăugat!"));
 
 })
 
@@ -253,7 +271,7 @@ app.post('/removefromcart', fetchUser, async (req,res)=>{
     if(userData.cartData[req.body.itemId]>0)
     userData.cartData[req.body.itemId] -=1;
     await Users.findOneAndUpdate({_id:req.user.id}, {cartData:userData.cartData});
-    res.send(JSON.stringify("REMOVED"));
+    res.send(JSON.stringify("Produs șters!"));
 })
 
 // creating endpoint to get cartdata
