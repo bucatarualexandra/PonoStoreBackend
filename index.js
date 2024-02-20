@@ -24,19 +24,27 @@ app.get("/", (req, res) => {
 const storage = multer.diskStorage({
     destination: "./upload/images",
     filename: (req, file, cb) => {
-        return cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`)
+        const uniqueFilename = `${file.filename}_${Date.now()}${path.extname(file.originalname)}`;
+        cb(null, uniqueFilename);
     }
 })
-
-const upload = multer({ storage: storage })
+const upload = multer({
+    storage: storage,
+    limits: {
+        files:4
+    }
+})
 
 // Creating  Uploade Endpoint for image
 app.use("/images", express.static("upload/images"))
 
-app.post("/upload", upload.single("product"), (req, res) => {
+app.post("/upload", upload.array("image", 4), (req, res) => {
+    const imageUrls = req.files.map(file=>{
+        return `http://localhost:${port}/images/${file.filename}`;
+    })
     res.json({
         success: 1,
-        image_url: `http://localhost:${port}/images/${req.file.filename}`
+        image_urls: imageUrls,
     })
 
 })
@@ -51,10 +59,10 @@ const Product = mongoose.model("Product", {
         type: String,
         require: true,
     },
-    image: {
+    image_urls: [{
         type: String,
         require: true,
-    },
+    }],
     category: {
         type: String,
         require: true,
@@ -92,7 +100,7 @@ app.post("/addproduct", async (req, res) => {
     const product = new Product({
         id: id,
         name: req.body.name,
-        image: req.body.image,
+        image_urls: req.body.images,
         category: req.body.category,
         new_price: req.body.new_price,
         old_price: req.body.old_price,
@@ -209,7 +217,7 @@ app.get('/newcollections', async (req, res) => {
 
 //Creating endpoint for new poppular in women
 app.get('/popularinnunta', async (req, res) => {
-    let products = await Product.find({ category:"nunta"});
+    let products = await Product.find({ category: "nunta" });
     let popular_in_wedding = products.slice(0, 4);
     console.log("Popular in women Fetched");
     res.send(popular_in_wedding);
@@ -227,7 +235,7 @@ app.get('/allproductsHero', async (req, res) => {
 })
 //Creating endpoint for offers
 app.get('/offerproducts', async (req, res) => {
-    let products = await Product.find({ category:"botez"});
+    let products = await Product.find({ category: "botez" });
     let offer_products = products.slice(0, 4);
     console.log("Offer fetched!");
     res.send(offer_products);
@@ -247,8 +255,8 @@ const fetchUser = async (req, res, next) => {
             req.user = data.user;
             next();
 
-        } catch (error){
-            res.status(401).send({errors: "Te rog să te autetifici mai întâi!"})
+        } catch (error) {
+            res.status(401).send({ errors: "Te rog să te autetifici mai întâi!" })
         }
     }
 }
@@ -257,27 +265,27 @@ const fetchUser = async (req, res, next) => {
 
 app.post("/addtocart", fetchUser, async (req, res) => {
     console.log("added", req.body.itemId);
-    let userData =await Users.findOne({_id:req.user.id});
-    userData.cartData[req.body.itemId] +=1;
-    await Users.findOneAndUpdate({_id:req.user.id}, {cartData:userData.cartData});
+    let userData = await Users.findOne({ _id: req.user.id });
+    userData.cartData[req.body.itemId] += 1;
+    await Users.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
     res.send(JSON.stringify("Produs adăugat!"));
 
 })
 
 // creating endpoint to remove product from cart
-app.post('/removefromcart', fetchUser, async (req,res)=>{
+app.post('/removefromcart', fetchUser, async (req, res) => {
     console.log("removed", req.body.itemId);
-    let userData =await Users.findOne({_id:req.user.id});
-    if(userData.cartData[req.body.itemId]>0)
-    userData.cartData[req.body.itemId] -=1;
-    await Users.findOneAndUpdate({_id:req.user.id}, {cartData:userData.cartData});
+    let userData = await Users.findOne({ _id: req.user.id });
+    if (userData.cartData[req.body.itemId] > 0)
+        userData.cartData[req.body.itemId] -= 1;
+    await Users.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
     res.send(JSON.stringify("Produs șters!"));
 })
 
 // creating endpoint to get cartdata
-app.post('/getcart',fetchUser, async(req,res)=>{
+app.post('/getcart', fetchUser, async (req, res) => {
     console.log("GetCart");
-    let userData= await Users.findOne({_id:req.user.id});
+    let userData = await Users.findOne({ _id: req.user.id });
     res.json(userData.cartData);
 })
 
