@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
 const cors = require("cors");
+const uuid = require("uuid").v4; // Import uuid library
 
 app.use(express.json());
 app.use(cors());
@@ -24,23 +25,29 @@ app.get("/", (req, res) => {
 const storage = multer.diskStorage({
     destination: "./upload/images",
     filename: (req, file, cb) => {
-        const uniqueFilename = `${file.originalname}_${Date.now()}${path.extname(file.originalname)}`;
+        if (!file) {
+            return cb(new Error("No file provided"));
+        }
+        const uniqueFilename = `${uuid()}${path.extname(file.originalname)}`; // Generate unique filename using uuid
         cb(null, uniqueFilename);
     }
-})
+});
+
 const upload = multer({
     storage: storage,
     limits: {
-        files:4
+        files: 4
     }
-})
+});
 
-// Creating  Uploade Endpoint for image
- 
+// Creating Upload Endpoint for image
 app.post("/upload", upload.array("image", 4), (req, res) => {
-    const image_urls = req.files.map(file.path);
-    res.json({success: true, image_urls});
+    const image_urls = req.files.map(file => {
+        return `${req.protocol}://${req.get('host')}/${file.path.replace(/\\/g, '/')}`;
     });
+    res.json({ success: true, image_urls });
+});
+
 
 // Schema for Creating Products
 const Product = mongoose.model("Product", {
@@ -62,7 +69,7 @@ const Product = mongoose.model("Product", {
     },
     new_price: {
         type: Number,
-        required: true,
+        require: true,
     },
     old_price: {
         type: Number,
@@ -72,7 +79,7 @@ const Product = mongoose.model("Product", {
         type: Date,
         default: Date.now,
     },
-    avilable: {
+    available: {
         type: Boolean,
         default: true,
     },
@@ -147,59 +154,6 @@ const Users = mongoose.model("Users", {
     }
 })
 
-//Creating Endpoint for registering the user
-
-app.post("/signup", async (req, res) => {
-    let check = await Users.findOne({ email: req.body.email });
-    if (check) {
-        return res.status(400).json({ success: false, errors: "Există un cont creeat cu aceeași adresă de email!" })
-    }
-    let cart = {};
-    for (let i = 0; i < 300; i++) {
-        cart[i] = 0;
-    }
-    const user = new Users({
-        name: req.body.username,
-        email: req.body.email,
-        password: req.body.password,
-        cartData: cart,
-    })
-    await user.save();
-
-    const data = {
-        user: {
-            id: user.id
-
-        }
-    }
-    const token = jwt.sign(data, "secret_ecom");
-    res.json({ success: true, token })
-})
-
-//Creating Endpoint for the user login
-
-app.post("/login", async (req, res) => {
-    let user = await Users.findOne({ email: req.body.email });
-    if (user) {
-        const passCompare = req.body.password === user.password;
-        if (passCompare) {
-            const data = {
-                user: {
-                    id: user.id
-                }
-            }
-            const token = jwt.sign(data, "secret_ecom");
-            res.json({ success: true, token });
-        }
-        else {
-            res.json({ success: false, errors: "Parolă greșită! Mai încearcă!" });
-        }
-    }
-    else {
-        res.json({ success: false, errors: "Email greșit!Mai încearcă!" });
-    }
-})
-
 //Creating endpoint for new collection data
 app.get('/newcollections', async (req, res) => {
     let products = await Product.find({});
@@ -233,53 +187,6 @@ app.get('/offerproducts', async (req, res) => {
     console.log("Offer fetched!");
     res.send(offer_products);
 
-})
-
-//creating dillelware to fetch user
-
-const fetchUser = async (req, res, next) => {
-    const token = req.header("auth-token");
-    if (!token) {
-        res.status(401).send({ errors: "Te rog să te autetifici mai întâi!" });
-    }
-    else {
-        try {
-            const data = jwt.verify(token, "secret_ecom");
-            req.user = data.user;
-            next();
-
-        } catch (error) {
-            res.status(401).send({ errors: "Te rog să te autetifici mai întâi!" })
-        }
-    }
-}
-
-//creating endpoint for adding products in cartdata
-
-app.post("/addtocart", fetchUser, async (req, res) => {
-    console.log("added", req.body.itemId);
-    let userData = await Users.findOne({ _id: req.user.id });
-    userData.cartData[req.body.itemId] += 1;
-    await Users.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
-    res.send(JSON.stringify("Produs adăugat!"));
-
-})
-
-// creating endpoint to remove product from cart
-app.post('/removefromcart', fetchUser, async (req, res) => {
-    console.log("removed", req.body.itemId);
-    let userData = await Users.findOne({ _id: req.user.id });
-    if (userData.cartData[req.body.itemId] > 0)
-        userData.cartData[req.body.itemId] -= 1;
-    await Users.findOneAndUpdate({ _id: req.user.id }, { cartData: userData.cartData });
-    res.send(JSON.stringify("Produs șters!"));
-})
-
-// creating endpoint to get cartdata
-app.post('/getcart', fetchUser, async (req, res) => {
-    console.log("GetCart");
-    let userData = await Users.findOne({ _id: req.user.id });
-    res.json(userData.cartData);
 })
 
 app.listen(port, (error) => {
